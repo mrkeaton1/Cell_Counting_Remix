@@ -41,16 +41,18 @@ const double const_infinitesimal = 0.000000001;
 enum enum_shape_t { sphere, cube };
 #pragma endregion
 
-#pragma region "dialogInitialization" 
+#pragma region "dialogInitialization"
+// This is the dialog window run when the code is executed. *
 class dialogRun :public QDialog
 {
 	Q_OBJECT
 public:
+	// This is the creation of the initial dialog box upon the start of the program call
 	dialogRun(V3DPluginCallback2 &V3DPluginCallback2_currentCallback, QWidget *QWidget_parent, int int_channelDim)
 	{
 		//channel;
 		QStringList QStringList_channel_items;
-		if (int_channelDim == 1)
+		if (int_channelDim == 1) //if number of channels specified is 1, append "1" to the string list
 		{
 			QStringList_channel_items << "1";
 		}
@@ -60,7 +62,7 @@ public:
 			QStringList_channel_items << "2 - green";
 			QStringList_channel_items << "3 - blue";
 		}
-		else
+		else // adds a list of numbers from 1 to the specified number of channels
 		{
 			for (int i = 1; i <= int_channelDim; i++)
 			{
@@ -135,6 +137,8 @@ public:
 		update();
 	}
 	~dialogRun() {}
+
+	// Unsure of the purpose of this block of code... doesn't the above destructor handle cleanup of these variables?
 	QComboBox* QComboBox_channel_selection;
 	V3DLONG channel_idx_selection;
 	QLineEdit* QLineEdit_Shape_delta;
@@ -150,6 +154,7 @@ public:
 	double shape_multiplier_uThresholdRegionSize;
 	V3DLONG exemplar_maxMovement1;
 	V3DLONG exemplar_maxMovement2;
+
 public slots:
 	void _slot_start()
 	{
@@ -239,9 +244,9 @@ public:
 		~class_segmentationMain() {}
 
 
-		//////////////////////////////
-
-		/////////////////////////////
+		////////////////////////////////////////////
+		/// Execution of Cell Counting Algorithm ///
+		////////////////////////////////////////////
 #pragma region "control-run"
 		bool control_run(unsigned char* _Image1D_original, V3DLONG _dim_X, V3DLONG _dim_Y, V3DLONG _dim_Z,
 			int _idx_channel, LandmarkList _LandmarkList_exemplar, int _idx_shape, double _threshold_deltaShapeStat,
@@ -251,7 +256,7 @@ public:
 			//if (!this->is_initialized) // Temporally solution for the "parameter window not popped up" problem;
 			{
 				this->dim_X = _dim_X; this->dim_Y = _dim_Y; this->dim_Z = _dim_Z; this->idx_channel = _idx_channel;
-				this->size_page = dim_X * dim_Y*dim_Z;
+				this->size_page = dim_X * dim_Y * dim_Z;
 				this->size_page3 = this->size_page + this->size_page + this->size_page;
 				this->offset_channel = (idx_channel - 1)*size_page;
 				this->offset_Z = dim_X * dim_Y;
@@ -261,6 +266,7 @@ public:
 				this->Image3D_page = memory_allocate_uchar3D(this->dim_Y, this->dim_X, this->dim_Z); //tricky!
 				this->Image1D_segmentationResult = memory_allocate_uchar1D(this->size_page3);
 				this->Image1D_exemplar = memory_allocate_uchar1D(this->size_page3);
+
 				for (V3DLONG i = 0; i < this->size_page; i++)
 				{
 					this->Image1D_page[i] = _Image1D_original[i + offset_channel];
@@ -270,6 +276,7 @@ public:
 					this->Image1D_segmentationResult[i + size_page] = this->Image1D_page[i];
 					this->Image1D_segmentationResult[i + size_page + size_page] = this->Image1D_page[i];
 				}
+				// Sets all values in Image1D_mask to const_max_voxelValue (255)
 				memset(this->Image1D_mask, const_max_voxelValue, this->size_page);
 				this->idx_shape = _idx_shape;
 				this->categorizeVoxelsByValue();
@@ -280,9 +287,10 @@ public:
 				this->max_movment1 = _maxMovement1 * _maxMovement1;
 				this->max_movment2 = _maxMovement2 * _maxMovement2;
 				this->is_initialized = false;
-			}
+			} // unecessary block, used only because of commented out code above
+
 			vector<double> thresholds_valueChangeRatio;
-			vector<V3DLONG > thresholds_voxelValue;
+			vector<V3DLONG> thresholds_voxelValue;
 			vector<V3DLONG> thresholds_regionSize;
 			vector<V3DLONG> uThresholds_regionSize;
 			vector<V3DLONG> thresholds_radius;
@@ -480,25 +488,25 @@ public:
 			this->possVct2Image1DC(this->possVct_segmentationResult, this->Image1D_segmentationResult);
 			this->memory_free_uchar2D(masks_page, count_exemplar);
 			return true;
-		}
+		} // End of control_run
 #pragma endregion
 
 #pragma region "regionGrow"
 		void categorizeVoxelsByValue() //will only consider voxels with value higher than threshold_global;
 		{
-			this->possVct_seed.clear();
-			vector<V3DLONG> poss_empty(0, 0);
-			for (V3DLONG i = default_threshold_global; i < const_length_histogram; i++)
+			this->possVct_seed.clear(); // sets vector to size 0
+			vector<V3DLONG> poss_empty(0, 0); // creates a vector of size 0 with length 0
+			for (V3DLONG i = default_threshold_global; i < const_length_histogram; i++) // for i = 20 to i < 256
 			{
-				this->possVct_seed.push_back(poss_empty);
+				this->possVct_seed.push_back(poss_empty); // adds (256-20) empty spaces to possVct_seed
 			}
 			for (V3DLONG i = 0; i < this->size_page; i++)
 			{
 				V3DLONG value_i = this->Image1D_page[i];
-				if (value_i > default_threshold_global)
+				if (value_i > default_threshold_global) // 20
 				{
-					V3DLONG offset_i = const_max_voxelValue - value_i;
-					this->possVct_seed[offset_i].push_back(i);
+					V3DLONG offset_i = const_max_voxelValue - value_i; // 255
+					this->possVct_seed[offset_i].push_back(i); // adds the location of the offset to the position coinciding with the offset?
 				}
 			}
 		}
@@ -526,7 +534,7 @@ public:
 				{
 					if (((xyz_current[0] + point_neighborRelative[j].x) < 0) || ((xyz_current[0] + point_neighborRelative[j].x) >= this->dim_X) || ((xyz_current[1] + point_neighborRelative[j].y) < 0) || ((xyz_current[1] + point_neighborRelative[j].y) >= this->dim_Y) || ((xyz_current[2] + point_neighborRelative[j].z) < 0) || ((xyz_current[2] + point_neighborRelative[j].z) >= this->dim_Z))
 					{
-						//invalide anyway;
+						//invalid anyway;
 					}
 					else
 					{
@@ -554,7 +562,7 @@ public:
 				}
 			}
 		}
-#pragma endregion		
+#pragma endregion
 
 #pragma region "utility functions"
 		static void Image3D2Image1D(int*** Image3D_input, unsigned char* Image1D_output, const int size_X, const int size_Y, const int size_Z)
@@ -1465,6 +1473,7 @@ public:
 			free(ptr_input);
 		}
 
+		// Allocates memory for an unsigned char array and sets it all to 0
 		static unsigned char *memory_allocate_uchar1D(const int i_size)
 		{
 			unsigned char *ptr_result;
@@ -1477,6 +1486,7 @@ public:
 			free(ptr_input);
 		}
 
+		// Allocates memory for a 3D int array and sets it all to 0
 		static int ***memory_allocate_int3D(int i_size, int j_size, int k_size)
 		{
 			int ***ptr_result;
@@ -1964,19 +1974,25 @@ public:
 
 #pragma region "interface"
 
-	//////////////////////////////
-
-/////////////////////////////
+	//////////////////////////////////////////////////////////////
+	///              This is equivalent to main()              ///
+	/// General importing of image, logic, and error handling, ///
+	///         and running of cell counting algorithm.        ///
+	//////////////////////////////////////////////////////////////
 	bool interface_run(V3DPluginCallback2 &_V3DPluginCallback2_currentCallback, QWidget *_QWidget_parent)
 	{
 		v3dhandle v3dhandle_currentWindow = _V3DPluginCallback2_currentCallback.currentImageWindow();
 		if (!v3dhandle_currentWindow) { v3d_msg("You have not loaded any image or the image is corrupted, program canceled!"); return false; }
+		// Image4DSimple_current is the image obtained from the current window being operated on
 		Image4DSimple* Image4DSimple_current = _V3DPluginCallback2_currentCallback.getImage(v3dhandle_currentWindow);
 		if (!Image4DSimple_current) { v3d_msg("You have not loaded any image or the image is corrupted, program canceled!"); return false; }
 		V3DLONG count_totalBytes = Image4DSimple_current->getTotalBytes();
 		if (count_totalBytes < 1) { v3d_msg("You have not loaded any image or the image is corrupted, program canceled!"); return false; }
+
+		/* Obtain all import values from the current volume window being operated on: window name, dimensions, image size, landmark list, landmark count, SWC List (unsure as to what this is), and SWC List count. */
 		unsigned char* Image1D_current = Image4DSimple_current->getRawData();
 		QString name_currentWindow = _V3DPluginCallback2_currentCallback.getImageName(v3dhandle_currentWindow);
+		//Obtain the dimensions (x,y,z, and c) from the image
 		V3DLONG dim_X = Image4DSimple_current->getXDim(); V3DLONG dim_Y = Image4DSimple_current->getYDim();
 		V3DLONG dim_Z = Image4DSimple_current->getZDim(); V3DLONG dim_C = Image4DSimple_current->getCDim();
 		V3DLONG size_image = dim_X * dim_Y*dim_Z*dim_C;
@@ -1987,23 +2003,26 @@ public:
 		if (SWCList_current) { count_SWCList = SWCList_current->count(); }
 		LandmarkList LandmarkList_current;
 		V3DLONG count_currentLandmarkList = -1;
+
+		// Program quits and displays error if no landmarks or SWC's exist before launch
 		if ((count_SWCList < 1) && (count_userDefinedLandmarkList < 1)) { v3d_msg("You have not defined any landmarks or swc structure to run the segmenation, program canceled!"); return false; }
 		else if ((count_SWCList > 0) && (count_userDefinedLandmarkList > 0))
-		{
+		{ // The landmark list and the SWC list both exist, load them in
 			LandmarkList_current = LandmarkList_userDefined;
 			class_segmentationMain::neuronTree2LandmarkList(SWCList_current->first(), LandmarkList_current);
 			count_currentLandmarkList = LandmarkList_current.count();
 		}
 		else if ((count_SWCList > 0) && (count_userDefinedLandmarkList < 1))
-		{
+		{ // Load in just the swc list
 			class_segmentationMain::neuronTree2LandmarkList(SWCList_current->first(), LandmarkList_current);
 			count_currentLandmarkList = LandmarkList_current.count();
 		}
 		if (count_userDefinedLandmarkList > 0)
-		{
+		{ // Load in just the landmark list (shouldn't this be an else (or else if) statement?)
 			LandmarkList_current = LandmarkList_userDefined;
 			count_currentLandmarkList = LandmarkList_current.count();
 		}
+		//Creates the dialog window for the new output
 		dialogRun dialogRun1(_V3DPluginCallback2_currentCallback, _QWidget_parent, dim_C);
 		bool is_success = false;
 
@@ -2017,15 +2036,20 @@ public:
 				this->class_segmentationMain1.max_movment1, this->class_segmentationMain1.max_movment1);
 		}*/
 		//else
-		{
-			if (dialogRun1.exec() != QDialog::Accepted) { return false; }
+		{ // unecessary block, used only because of commented out code above
+			// *** Assuming this statement means that the dialog box closes if the user selects "Close" instead of "Run"
+			if (dialogRun1.exec() != QDialog::Accepted) { return false; } // runs dialog box
+
 			int idx_shape; //get shape paramters;
 			if (dialogRun1.shape_type_selection == sphere) { idx_shape = 1; }
 			else if (dialogRun1.shape_type_selection == cube) { idx_shape = 0; }
+
+			// EXECUTION OF CELL COUNTING ALGORITHM
 			is_success = this->class_segmentationMain1.control_run(Image1D_current, dim_X, dim_Y, dim_Z, dialogRun1.channel_idx_selection, LandmarkList_current,
 				idx_shape, dialogRun1.shape_para_delta, dialogRun1.shape_multiplier_thresholdRegionSize, dialogRun1.shape_multiplier_uThresholdRegionSize, name_currentWindow,
 				dialogRun1.exemplar_maxMovement1, dialogRun1.exemplar_maxMovement2);
-		}
+		} // unecessary block, used only because of commented out code above
+
 		QString name_result = "Result";
 		if (is_success)
 		{
@@ -2082,7 +2106,7 @@ public:
 			}
 			ofstream_log.close();
 			return true;
-		}
+		} // End of execution
 		else
 		{
 			v3dhandleList v3dhandleList_current = _V3DPluginCallback2_currentCallback.getImageWindowList();
@@ -2115,7 +2139,7 @@ public:
 			v3d_msg("Warning: no exemplar defined, please re-select the exemplars!");
 			return false;
 		}
-	}
+	} // End of interface_run
 
 	void visualizationImage1D(unsigned char* Image1D_input, V3DLONG dim_X, V3DLONG dim_Y, V3DLONG dim_Z, int dim_C, V3DPluginCallback2 &_V3DPluginCallback2_currentCallback, QString string_windowName)
 	{
