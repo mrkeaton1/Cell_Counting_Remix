@@ -138,7 +138,6 @@ public:
 	}
 	~dialogRun() {}
 
-	// Unsure of the purpose of this block of code... doesn't the above destructor handle cleanup of these variables?
 	QComboBox* QComboBox_channel_selection;
 	V3DLONG channel_idx_selection;
 	QLineEdit* QLineEdit_Shape_delta;
@@ -244,9 +243,12 @@ public:
 		~class_segmentationMain() {}
 
 
-		////////////////////////////////////////////
-		/// Execution of Cell Counting Algorithm ///
-		////////////////////////////////////////////
+		///////////////////////////////////////////////////////////////////
+		///           Execution of Cell Counting Algorithm              ///
+		///  Algorithm is run after the dialogRun code, so most of the  ///
+		/// included variables are obtained through user determination. ///
+		///////////////////////////////////////////////////////////////////
+		// *Note: "idx" stands for "index"
 #pragma region "control-run"
 		bool control_run(unsigned char* _Image1D_original, V3DLONG _dim_X, V3DLONG _dim_Y, V3DLONG _dim_Z,
 			int _idx_channel, LandmarkList _LandmarkList_exemplar, int _idx_shape, double _threshold_deltaShapeStat,
@@ -254,30 +256,36 @@ public:
 			V3DLONG _maxMovement1, V3DLONG _maxMovement2)
 		{
 			//if (!this->is_initialized) // Temporally solution for the "parameter window not popped up" problem;
-			{
-				this->dim_X = _dim_X; this->dim_Y = _dim_Y; this->dim_Z = _dim_Z; this->idx_channel = _idx_channel;
+			{ // unecessary block braces, used only because of commented out code above
+				// This block saves image data to the static variables
+				this->dim_X = _dim_X; this->dim_Y = _dim_Y; this->dim_Z = _dim_Z;
+				this->idx_channel = _idx_channel; // Index channel from dialog box
 				this->size_page = dim_X * dim_Y * dim_Z;
 				this->size_page3 = this->size_page + this->size_page + this->size_page;
 				this->offset_channel = (idx_channel - 1)*size_page;
-				this->offset_Z = dim_X * dim_Y;
-				this->offset_Y = dim_X;
+				this->offset_Z = dim_X * dim_Y; // used for 1D-to-3D representation conversions
+				this->offset_Y = dim_X; // used for 1D-to-3D representation conversions
 				this->Image1D_page = memory_allocate_uchar1D(this->size_page);
 				this->Image1D_mask = memory_allocate_uchar1D(this->size_page);
 				this->Image3D_page = memory_allocate_uchar3D(this->dim_Y, this->dim_X, this->dim_Z); //tricky!
 				this->Image1D_segmentationResult = memory_allocate_uchar1D(this->size_page3);
 				this->Image1D_exemplar = memory_allocate_uchar1D(this->size_page3);
 
+				/* Loads the channel from the original image into the single-channel Image1d_page, as well as a 3D representation and an array that stores 3 copies of Image1d_page. For example, if the selected channel is the blue channel, then only the blue channel from the original image is stored in Image1d_page and the other structures. */
 				for (V3DLONG i = 0; i < this->size_page; i++)
 				{
 					this->Image1D_page[i] = _Image1D_original[i + offset_channel];
 					vector<V3DLONG> xyz_i = this->index2Coordinate(i);
+					// Image1D_page is stored as a 3D image
 					this->Image3D_page[xyz_i[2]][xyz_i[1]][xyz_i[0]] = this->Image1D_page[i];
+					// Image1D_page is stored 3 times in a row into Image1Image1D_segmentationResult
 					this->Image1D_segmentationResult[i] = this->Image1D_page[i];
 					this->Image1D_segmentationResult[i + size_page] = this->Image1D_page[i];
 					this->Image1D_segmentationResult[i + size_page + size_page] = this->Image1D_page[i];
 				}
-				// Sets all values in Image1D_mask to const_max_voxelValue (255)
-				memset(this->Image1D_mask, const_max_voxelValue, this->size_page);
+
+				// This block saves user-defined parameters obtained through the dialog box into the static variables.
+				memset(this->Image1D_mask, const_max_voxelValue, this->size_page); // Sets all values in Image1D_mask to const_max_voxelValue (255)
 				this->idx_shape = _idx_shape;
 				this->categorizeVoxelsByValue();
 				this->threshold_deltaShapeStat = _threshold_deltaShapeStat;
@@ -287,8 +295,9 @@ public:
 				this->max_movment1 = _maxMovement1 * _maxMovement1;
 				this->max_movment2 = _maxMovement2 * _maxMovement2;
 				this->is_initialized = false;
-			} // unecessary block, used only because of commented out code above
+			} // unecessary block braces, used only because of commented out code above
 
+			// Declaration of local variables
 			vector<double> thresholds_valueChangeRatio;
 			vector<V3DLONG> thresholds_voxelValue;
 			vector<V3DLONG> thresholds_regionSize;
@@ -297,15 +306,19 @@ public:
 			this->initializeConstants();
 			vector<vector<V3DLONG> > possVct_exemplarRegion;
 			vector<vector<vector<double> > > valueVctVct_exemplarShapeStat;
-			vector<V3DLONG> poss_exemplar = landMarkList2IndexList(_LandmarkList_exemplar);
+			vector<V3DLONG> poss_exemplar = landMarkList2IndexList(_LandmarkList_exemplar); // sends LandmarkList to vector poss_exemplar
 			V3DLONG count_exemplar = poss_exemplar.size();
 			vector<V3DLONG> poss_exemplarNew;
+
 			for (V3DLONG idx_exemplar = 0; idx_exemplar < count_exemplar; idx_exemplar++)
 			{
 				V3DLONG pos_exemplar = poss_exemplar[idx_exemplar];
-				if (this->Image1D_mask[pos_exemplar] < 1) { continue; }
-				V3DLONG value_exemplar = this->Image1D_page[pos_exemplar];
-				V3DLONG count_step = (value_exemplar - default_threshold_global);
+				if (this->Image1D_mask[pos_exemplar] < 1) { continue; } // skip if the value at the index of a possible "exemplar" is 0 (or negative?) All values should be at 255 though... (line 288)
+				V3DLONG value_exemplar = this->Image1D_page[pos_exemplar]; // value at the position of the current landmark
+				V3DLONG count_step = (value_exemplar - default_threshold_global); // value - 20
+				// *********************************************************************************
+				// *********************************************************************************
+				// *********************************************************************************
 				V3DLONG pos_massCenterOld = -1;
 				V3DLONG pos_massCenterNew = 0;
 				vector<V3DLONG> poss_exemplarRegionNew;
@@ -654,7 +667,7 @@ public:
 			return LocationSimple_result;
 		}
 
-		vector<V3DLONG> landMarkList2IndexList(LandmarkList LandmarkList_input)
+		vector<V3DLONG> landMarkList2IndexList(LandmarkList LandmarkList_input) // Sends LandmarkList to vector
 		{
 			vector<V3DLONG> vct_result;
 			for (V3DLONG idx_input = 0; idx_input < LandmarkList_input.count(); idx_input++)
@@ -1989,7 +2002,7 @@ public:
 		V3DLONG count_totalBytes = Image4DSimple_current->getTotalBytes();
 		if (count_totalBytes < 1) { v3d_msg("You have not loaded any image or the image is corrupted, program canceled!"); return false; }
 
-		/* Obtain all import values from the current volume window being operated on: window name, dimensions, image size, landmark list, landmark count, SWC List (unsure as to what this is), and SWC List count. */
+		/* Obtain all import values from the current volume window being operated on: raw data, window name, dimensions, image size, landmark list, landmark count, SWC List (unsure as to what this is), and SWC List count. */
 		unsigned char* Image1D_current = Image4DSimple_current->getRawData();
 		QString name_currentWindow = _V3DPluginCallback2_currentCallback.getImageName(v3dhandle_currentWindow);
 		//Obtain the dimensions (x,y,z, and c) from the image
@@ -2036,7 +2049,7 @@ public:
 				this->class_segmentationMain1.max_movment1, this->class_segmentationMain1.max_movment1);
 		}*/
 		//else
-		{ // unecessary block, used only because of commented out code above
+		{ // unecessary block braces, used only because of commented out code above
 			// *** Assuming this statement means that the dialog box closes if the user selects "Close" instead of "Run"
 			if (dialogRun1.exec() != QDialog::Accepted) { return false; } // runs dialog box
 
@@ -2048,7 +2061,7 @@ public:
 			is_success = this->class_segmentationMain1.control_run(Image1D_current, dim_X, dim_Y, dim_Z, dialogRun1.channel_idx_selection, LandmarkList_current,
 				idx_shape, dialogRun1.shape_para_delta, dialogRun1.shape_multiplier_thresholdRegionSize, dialogRun1.shape_multiplier_uThresholdRegionSize, name_currentWindow,
 				dialogRun1.exemplar_maxMovement1, dialogRun1.exemplar_maxMovement2);
-		} // unecessary block, used only because of commented out code above
+		} // unecessary block braces, used only because of commented out code above
 
 		QString name_result = "Result";
 		if (is_success)
