@@ -155,6 +155,7 @@ public:
 	V3DLONG exemplar_maxMovement2;
 
 public slots:
+//////////////////////////////?
 	void _slot_start()
 	{
 		channel_idx_selection = QComboBox_channel_selection->currentIndex() + 1;
@@ -306,19 +307,17 @@ public:
 			this->initializeConstants();
 			vector<vector<V3DLONG> > possVct_exemplarRegion;
 			vector<vector<vector<double> > > valueVctVct_exemplarShapeStat;
-			vector<V3DLONG> poss_exemplar = landMarkList2IndexList(_LandmarkList_exemplar); // sends LandmarkList to vector poss_exemplar
+			vector<V3DLONG> poss_exemplar = landMarkList2IndexList(_LandmarkList_exemplar); // sends LandmarkList to vector poss_exemplar, where each element in the vector corresponds to the 1D coordinate representation of the location
 			V3DLONG count_exemplar = poss_exemplar.size();
 			vector<V3DLONG> poss_exemplarNew;
 
+			// for each landmark, do the following
 			for (V3DLONG idx_exemplar = 0; idx_exemplar < count_exemplar; idx_exemplar++)
 			{
 				V3DLONG pos_exemplar = poss_exemplar[idx_exemplar];
-				if (this->Image1D_mask[pos_exemplar] < 1) { continue; } // skip if the value at the index of a possible "exemplar" is 0 (or negative?) All values should be at 255 though... (line 288)
+				if (this->Image1D_mask[pos_exemplar] < 1) { continue; } // skip if the value at the index of a possible "exemplar" is 0 (or negative?) All values should be at 255 though... (line ~289)
 				V3DLONG value_exemplar = this->Image1D_page[pos_exemplar]; // value at the position of the current landmark
 				V3DLONG count_step = (value_exemplar - default_threshold_global); // value - 20
-				// *********************************************************************************
-				// *********************************************************************************
-				// *********************************************************************************
 				V3DLONG pos_massCenterOld = -1;
 				V3DLONG pos_massCenterNew = 0;
 				vector<V3DLONG> poss_exemplarRegionNew;
@@ -334,8 +333,10 @@ public:
 					pos_massCenterNew = this->getCenterByMass(poss_exemplarRegionNew);
 					double value_centerMovement1 = this->getEuclideanDistance2(pos_massCenterOld, pos_massCenterNew);
 					value_centerMovement2 = this->getEuclideanDistance2(pos_exemplar, pos_massCenterNew);
+					// if the maximum movement of the center of mass from the old mass center or the position of the landmark is larger than the user-defined "max movement from mass center" or "max movement from marker position", then break.
 					if (value_centerMovement1 > max_movment1) { break; }
 					if (value_centerMovement2 > max_movment2) { break; }
+					// otherwise, update the center of mass and exemplar region (ugly way to handle this).
 					pos_massCenterOld = pos_massCenterNew;
 					poss_exemplarRegionOld = poss_exemplarRegionNew;
 				}
@@ -351,8 +352,8 @@ public:
 						pos_massCenterNew = this->getCenterByMass(poss_exemplarRegionNew);
 						double value_centerMovement1 = this->getEuclideanDistance2(pos_massCenterOld, pos_massCenterNew);
 						value_centerMovement2 = this->getEuclideanDistance2(pos_exemplar, pos_massCenterNew);
-						if (value_centerMovement1 > (max_movment1 * 9)) { break; }
-						if (value_centerMovement2 > (max_movment2 * 9)) { break; }
+						if (value_centerMovement1 > (max_movment1 * 9)) { break; } // these are the only changes from last block
+						if (value_centerMovement2 > (max_movment2 * 9)) { break; } // these are the only changes from last block
 						pos_massCenterOld = pos_massCenterNew;
 						poss_exemplarRegionOld = poss_exemplarRegionNew;
 					}
@@ -361,6 +362,8 @@ public:
 				if (value_centerMovement2 > (max_movment2 * 4)) { continue; } //failed;
 				if (poss_exemplarRegionOld.size() < default_threshold_regionSize) { continue; } //failed;
 				if (poss_exemplarRegionOld.size() > (this->size_page / 1000)) { continue; } //failed;
+
+				// Haven't looked in-depth, but looks like updating variables to correspond with properties related to the new region
 				//shape property;
 				vector<V3DLONG> boundBox_exemplarRegion = this->getBoundBox(poss_exemplarRegionOld);
 				V3DLONG radius_exemplarRegion = getMinDimension(boundBox_exemplarRegion) / 2;
@@ -383,6 +386,8 @@ public:
 				valueVctVct_exemplarShapeStat.push_back(valuesVct_shapeStatExemplarRegion);
 				thresholds_radius.push_back(radius_exemplarRegion);
 			}
+
+			// Haven't looked in depth, but seems to be updating variables keeping track of future examples to look at
 			if (possVct_exemplarRegion.empty()) { return false; }
 			poss_exemplar.clear();
 			poss_exemplar = poss_exemplarNew;
@@ -524,6 +529,7 @@ public:
 			}
 		}
 
+		// Grows out from the start node out to any neighbors if their value is greater than the threshold voxel value and the difference of the start node and the neighbor node is less than the specified threshold ratio. Continues until no more neighbors exist.
 		vector<V3DLONG> regionGrowOnPos(V3DLONG _pos_seed, V3DLONG _threshold_voxelValue, double _threshold_valueChangeRatio,
 			V3DLONG _uThreshold_regionSize, unsigned char* _mask_input)
 		{
@@ -540,18 +546,21 @@ public:
 				{
 					return poss_result;
 				}
-				V3DLONG pos_current = poss_growing.back();
-				poss_growing.pop_back();
+				V3DLONG pos_current = poss_growing.back(); //stores last value in poss_growing
+				poss_growing.pop_back(); // removes last value in poss_growing
 				vector<V3DLONG> xyz_current = this->index2Coordinate(pos_current);
-				for (int j = 0; j < const_count_neighbors; j++)
+				for (int j = 0; j < const_count_neighbors; j++) // 26 (27 neighbors - 1)
 				{
+
+					// if the jth neighbor is out of range of the graph, do nothing.
 					if (((xyz_current[0] + point_neighborRelative[j].x) < 0) || ((xyz_current[0] + point_neighborRelative[j].x) >= this->dim_X) || ((xyz_current[1] + point_neighborRelative[j].y) < 0) || ((xyz_current[1] + point_neighborRelative[j].y) >= this->dim_Y) || ((xyz_current[2] + point_neighborRelative[j].z) < 0) || ((xyz_current[2] + point_neighborRelative[j].z) >= this->dim_Z))
 					{
-						//invalid anyway;
+						// invalid anyway;
 					}
 					else
 					{
 						V3DLONG pos_neighbor = pos_current + poss_neighborRelative[j];
+						// This was literally just checked...
 						if (this->checkValidity(pos_neighbor)) //prevent it from going out of bounds;
 						{
 							if (_mask_input[pos_neighbor] > 0) //available only;
