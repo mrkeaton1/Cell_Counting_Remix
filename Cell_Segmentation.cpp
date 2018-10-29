@@ -186,7 +186,7 @@ public:
 	{
 #pragma region "class member"
 	public:
-		struct double3D
+		struct double3D // Stores x, y, z - used to store 3D coordinates
 		{
 			double x; double y; double z;
 			double3D(double _x = 0, double _y = 0, double _z = 0) { x = _x; y = _y; z = _z; }
@@ -201,8 +201,8 @@ public:
 		};
 
 		//constant
-		vector<V3DLONG> poss_neighborRelative;
-		vector<double3D> point_neighborRelative;
+		vector<V3DLONG> poss_neighborRelative; // positions of adjacent points in 1D coordinates
+		vector<double3D> point_neighborRelative; // positions of adjacent points in 3D coordinates
 		vector<vector<V3DLONG> > colors_simpleTable;
 
 		//Input or directly derived;
@@ -249,7 +249,7 @@ public:
 		///  Algorithm is run after the dialogRun code, so most of the  ///
 		/// included variables are obtained through user determination. ///
 		///////////////////////////////////////////////////////////////////
-		// *Note: "idx" stands for "index"
+		// *Note: "idx" likely stands for "index"
 #pragma region "control-run"
 		bool control_run(unsigned char* _Image1D_original, V3DLONG _dim_X, V3DLONG _dim_Y, V3DLONG _dim_Z,
 			int _idx_channel, LandmarkList _LandmarkList_exemplar, int _idx_shape, double _threshold_deltaShapeStat,
@@ -263,7 +263,7 @@ public:
 				this->idx_channel = _idx_channel; // Index channel from dialog box
 				this->size_page = dim_X * dim_Y * dim_Z;
 				this->size_page3 = this->size_page + this->size_page + this->size_page;
-				this->offset_channel = (idx_channel - 1)*size_page;
+				this->offset_channel = (idx_channel - 1)*size_page; // position where channel begins being stored within Image1D_page
 				this->offset_Z = dim_X * dim_Y; // used for 1D-to-3D representation conversions
 				this->offset_Y = dim_X; // used for 1D-to-3D representation conversions
 				this->Image1D_page = memory_allocate_uchar1D(this->size_page);
@@ -279,7 +279,7 @@ public:
 					vector<V3DLONG> xyz_i = this->index2Coordinate(i);
 					// Image1D_page is stored as a 3D image
 					this->Image3D_page[xyz_i[2]][xyz_i[1]][xyz_i[0]] = this->Image1D_page[i];
-					// Image1D_page is stored 3 times in a row into Image1Image1D_segmentationResult
+					// Image1D_page is stored 3 times in a row into Image1D_segmentationResult
 					this->Image1D_segmentationResult[i] = this->Image1D_page[i];
 					this->Image1D_segmentationResult[i + size_page] = this->Image1D_page[i];
 					this->Image1D_segmentationResult[i + size_page + size_page] = this->Image1D_page[i];
@@ -298,7 +298,7 @@ public:
 				this->is_initialized = false;
 			} // unecessary block braces, used only because of commented out code above
 
-			// Declaration of local variables
+			// Declaration of local variables, initialization of some constant global variables
 			vector<double> thresholds_valueChangeRatio;
 			vector<V3DLONG> thresholds_voxelValue;
 			vector<V3DLONG> thresholds_regionSize;
@@ -328,7 +328,7 @@ public:
 				{
 					V3DLONG threshold_exemplarRegion = value_exemplar - idx_step;
 					poss_exemplarRegionNew = this->regionGrowOnPos(pos_exemplar, threshold_exemplarRegion, INF, this->size_page / 1000, this->Image1D_mask);
-					this->poss2Image1D(poss_exemplarRegionNew, this->Image1D_mask, const_max_voxelValue);
+					this->poss2Image1D(poss_exemplarRegionNew, this->Image1D_mask, const_max_voxelValue); // *
 					if (poss_exemplarRegionNew.size() < default_threshold_regionSize) { break; }
 					pos_massCenterNew = this->getCenterByMass(poss_exemplarRegionNew);
 					double value_centerMovement1 = this->getEuclideanDistance2(pos_massCenterOld, pos_massCenterNew);
@@ -363,8 +363,7 @@ public:
 				if (poss_exemplarRegionOld.size() < default_threshold_regionSize) { continue; } //failed;
 				if (poss_exemplarRegionOld.size() > (this->size_page / 1000)) { continue; } //failed;
 
-				// Haven't looked in-depth, but looks like updating variables to correspond with properties related to the new region
-				//shape property;
+				// Block used for updating variables to correspond with properties related to the new region shape information
 				vector<V3DLONG> boundBox_exemplarRegion = this->getBoundBox(poss_exemplarRegionOld);
 				V3DLONG radius_exemplarRegion = getMinDimension(boundBox_exemplarRegion) / 2;
 				vector<V3DLONG> xyz_exemplarRegionCenter = this->index2Coordinate(pos_massCenterOld);
@@ -560,7 +559,7 @@ public:
 					else
 					{
 						V3DLONG pos_neighbor = pos_current + poss_neighborRelative[j];
-						// This was literally just checked...
+						// This was literally just checked, but using the 3D coordinates... should suffice to only check one
 						if (this->checkValidity(pos_neighbor)) //prevent it from going out of bounds;
 						{
 							if (_mask_input[pos_neighbor] > 0) //available only;
@@ -725,6 +724,7 @@ public:
 
 		void initializeConstants()
 		{
+			// General question: are these required to be preceded by "this->"?
 			this->poss_neighborRelative.clear();
 			this->point_neighborRelative.clear();
 			this->colors_simpleTable.clear();
@@ -742,7 +742,7 @@ public:
 						}
 						else
 						{
-							this->poss_neighborRelative.push_back(z*this->offset_Z + y * this->offset_Y + x);
+							this->poss_neighborRelative.push_back(z * this->offset_Z + y * this->offset_Y + x);
 							point_neighbor.x = x; point_neighbor.y = y; point_neighbor.z = z;
 							this->point_neighborRelative.push_back(point_neighbor);
 						}
@@ -1088,6 +1088,7 @@ public:
 			return values_result;
 		}
 
+		// Return largest "width" of the bounding box - either the x-, y-, or z-dimension
 		V3DLONG getMinDimension(vector<V3DLONG> vct_input) //input: min_X, max_X, min_Y, max_Y, min_Z, max_Z;
 		{
 			V3DLONG size_X = vct_input[1] - vct_input[0];
