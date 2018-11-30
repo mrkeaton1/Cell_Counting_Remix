@@ -2,7 +2,7 @@
 # Steps involved include:
 # 1. Importing a .tif stack (3-D volume)
 # 2. Loading the .tif stack into a numpy array
-# 3. Importing landmarks - .marker files, typically obtained from the Vaa3D software
+# 3. Importing landmarks - .marker files, typically obtained from the Vaa3D software =+=
 # 4. Checking each landmark to ensure it corresponds to a cell
 # 5. Extracting feature vectors from the landmarks **
 # 6. Training the model - SVM, sklearn?
@@ -17,6 +17,7 @@ from numpy import hstack
 # from PIL import Image
 import re
 import glob
+from natsort import natsorted
 
 tiffAList = [] # List containing each tif image in a numpy array
 markLList = [] # List of each marker
