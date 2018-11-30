@@ -8,6 +8,9 @@
 # 6. Training the model - SVM, sklearn?
 # 7. Test on the remaining points - k-fold testing
 
+# Usage (input): python SimpleCellCount.py New_Stack/ NewStack_1_1.marker
+# Usage (output): python SimpleCellCount.py New_Stack/ NewStack_1_1_outputs.marker
+
 import numpy as np
 import os
 import tifffile as tf
@@ -36,7 +39,8 @@ def findTiffsInPath(tiffDirectory):
 	print("Loading all .tif files from " + tiffDirectory)
 
 	nameList = glob.glob(tiffDirectory + "*.tif*")
-	naturalSort(nameList)
+	nameList = natsorted(nameList)
+#    naturalSort(nameList)
 	for name in nameList:
 		print(name)
 
@@ -56,9 +60,19 @@ def loadMarker(markerFile):
     for marker in markers[1:]: # Skip 1st row containing name of volume
         print(marker)
         markSplit = marker.split(',')
-        markLList.append(markSplit[:5]) # Only keeps x, y, z, radius, and shape (Ignores name and comment)
+        markLList.append(markSplit[:5]) # Only keeps x, y, z (referring to how many tif files deep), radius, and shape (Ignores name and comment)
     print("Resulting list:")
     print(markLList)
+    return markLList
+
+
+def checkMarkers(markerList):
+    validatedList = []
+    for marker in markerList:
+        fileNum = marker[2]
+        print ("Marker points to tiff file", fileNum)
+        #this doesn't seem to line up to RGB values shown from landmarks in Vaa3D; not sure what this is
+        print ("RGB =",tiffAList[int(fileNum)][int(marker[0])][int(marker[1])])
     return
 
 # Commented out because it was giving back "IndentationError: unindent does not match any outer indentation level"
@@ -73,4 +87,8 @@ else:
     fileToSearch = sys.argv[1]
     markerFileName = sys.argv[2]
     loadTiffs(fileToSearch, findTiffsInPath(fileToSearch))
-    loadMarker(markerFileName)
+    markers = loadMarker(markerFileName)
+
+    checkMarkers(markers)
+    print("Shape:     ", tiffAList[0].shape)
+    print("Aligns with   X    Y  RGB")
